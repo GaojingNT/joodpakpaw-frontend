@@ -21,7 +21,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import Image from 'next/image' // Add this import
 import { XCircle, PawPrint, Zap, CameraIcon } from 'lucide-react' // Adjusted import
-import { cn } from '@/lib/utils' // Import cn
+import { cn, formatPhoneNumber } from '@/lib/utils'
 
 interface EditPetProfileFormProps {
   pet: PetProfile
@@ -38,7 +38,7 @@ export default function EditPetProfileForm({
   const [formData, setFormData] = useState({
     name: pet.name,
     contactName: pet.contactName || '',
-    contactPhone: pet.contactPhone || '',
+    contactPhone: formatPhoneNumber(pet.contactPhone || ''),
     note: pet.note || '',
     image: null as File | null,
   })
@@ -113,8 +113,7 @@ export default function EditPetProfileForm({
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-    const numericValue = value.replace(/[^0-9]/g, '') // Only allow numbers
-    setFormData((prev) => ({ ...prev, [name]: numericValue }))
+    setFormData((prev) => ({ ...prev, [name]: formatPhoneNumber(value) }))
     setErrors((prev) => ({ ...prev, [name]: undefined }))
   }
 
@@ -180,8 +179,8 @@ export default function EditPetProfileForm({
     if (!formData.contactPhone.trim()) {
       newErrors.contactPhone = 'Contact Phone is required.'
       isValid = false
-    } else if (!/^\d+$/.test(formData.contactPhone)) {
-      newErrors.contactPhone = 'Contact Phone must contain only numbers.'
+    } else if (!/^\d{3}-\d{3}-\d{3,4}$/.test(formData.contactPhone)) {
+      newErrors.contactPhone = 'Contact Phone must be a valid phone number.'
       isValid = false
     }
 
@@ -476,10 +475,9 @@ export default function EditPetProfileForm({
                     name="contactPhone"
                     type="tel"
                     inputMode="numeric"
-                    pattern="[0-9]*"
                     value={formData.contactPhone}
                     onChange={handlePhoneChange}
-                    maxLength={10}
+                    maxLength={12}
                     required
                     className={errors.contactPhone ? 'border-red-500' : ''}
                   />

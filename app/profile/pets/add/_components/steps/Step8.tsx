@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { StepNavigation } from '@/app/profile/host/add-property/_components/StepNavigation'
-import { cn } from '@/lib/utils'
+import { cn, formatPhoneNumber } from '@/lib/utils'
 import { useAddPet } from '../../_context/AddPetContext'
 import { useAuth } from '@/app/_components/AuthContext'
 import { getProfile } from '@/lib/api'
@@ -68,13 +68,7 @@ export function Step8({ onNext, onBack }: Step8Props) {
   }
 
   const handleContactPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '')
-    if (value.length > 3 && value.length <= 6) {
-      value = value.slice(0, 3) + '-' + value.slice(3)
-    } else if (value.length > 6) {
-      value = value.slice(0, 3) + '-' + value.slice(3, 6) + '-' + value.slice(6, 10)
-    }
-    updateField('contactPhone', value)
+    updateField('contactPhone', formatPhoneNumber(e.target.value))
     setAutoFilled(false)
   }
 

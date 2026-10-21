@@ -103,3 +103,11 @@ export function getPetPolicy(pets: Pet[] | undefined): string | null {
 
   return null
 }
+
+// Formats a phone number as 0XX-XXX-XXXX while typing (max 10 digits)
+export function formatPhoneNumber(input: string): string {
+  const digits = input.replace(/\D/g, '').slice(0, 10)
+  if (digits.length <= 3) return digits
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`
+}
