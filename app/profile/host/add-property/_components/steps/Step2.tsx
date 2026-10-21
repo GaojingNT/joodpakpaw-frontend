@@ -1,12 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import {
-  GoogleMap,
-  Marker,
-  StandaloneSearchBox,
-  useJsApiLoader,
-} from '@react-google-maps/api'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api'
 import { MapPin, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useAddProperty } from '../../_context/AddPropertyContext'
@@ -29,7 +24,9 @@ export function Step2({
     lat: Number(formData.latitude) || 13.736717,
     lng: Number(formData.longitude) || 100.523186,
   })
-  const [searchBox, setSearchBox] = useState<google.maps.places.SearchBox | null>(null)
+  const [suggestions, setSuggestions] = useState<google.maps.places.AutocompleteSuggestion[]>([])
+  const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [address, setAddress] = useState(formData.address || '')
   const [isLocating, setIsLocating] = useState(false)
   const [isGeocoding, setIsGeocoding] = useState(false)
@@ -125,18 +122,60 @@ export function Step2({
     )
   }, [formData.latitude, formData.longitude, reverseGeocode, updateField])
 
-  const onPlacesChanged = () => {
-    if (!searchBox) return
-    const places = searchBox.getPlaces()
-    if (places && places[0]?.geometry?.location) {
-      const location = places[0].geometry.location
-      const lat = location.lat()
-      const lng = location.lng()
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    }
+  }, [])
+
+  // Uses Places API (New); the legacy SearchBox cannot be enabled on new Google Cloud projects
+  const onSearchChange = (value: string) => {
+    setAddress(value)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    if (value.trim().length < 2) {
+      setSuggestions([])
+      return
+    }
+
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        if (!sessionTokenRef.current) {
+          sessionTokenRef.current = new google.maps.places.AutocompleteSessionToken()
+        }
+        const { suggestions } =
+          await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+            input: value,
+            sessionToken: sessionTokenRef.current,
+            includedRegionCodes: ['th'],
+            language: 'en',
+          })
+        setSuggestions(suggestions.filter((s) => s.placePrediction))
+      } catch (error) {
+        console.error('Failed to fetch place suggestions', error)
+        setSuggestions([])
+      }
+    }, 300)
+  }
+
+  const onSuggestionSelect = async (suggestion: google.maps.places.AutocompleteSuggestion) => {
+    if (!suggestion.placePrediction) return
+    setSuggestions([])
+    try {
+      const place = suggestion.placePrediction.toPlace()
+      await place.fetchFields({ fields: ['location', 'formattedAddress'] })
+      // A session ends once a place is fetched
+      sessionTokenRef.current = null
+      if (!place.location) return
+
+      const lat = place.location.lat()
+      const lng = place.location.lng()
       setCenter({ lat, lng })
       updateField('latitude', String(lat))
       updateField('longitude', String(lng))
-      setAddress(places[0].formatted_address || '')
+      setAddress(place.formattedAddress || '')
       reverseGeocode(lat, lng)
+    } catch (error) {
+      console.error('Failed to fetch place details', error)
     }
   }
 
@@ -185,17 +224,52 @@ export function Step2({
         </p>
 
         {/* Search box */}
-        <StandaloneSearchBox
-          onLoad={(ref) => setSearchBox(ref)}
-          onPlacesChanged={onPlacesChanged}
-        >
+        <div className="relative mb-3">
           <Input
             placeholder="Search location…"
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className="w-full mb-3"
+            onChange={(e) => onSearchChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && suggestions[0]) {
+                e.preventDefault()
+                onSuggestionSelect(suggestions[0])
+              } else if (e.key === 'Escape') {
+                setSuggestions([])
+              }
+            }}
+            onBlur={() => setTimeout(() => setSuggestions([]), 150)}
+            className="w-full"
           />
-        </StandaloneSearchBox>
+          {suggestions.length > 0 && (
+            <ul className="absolute z-20 left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg text-left max-h-64 overflow-y-auto">
+              {suggestions.map((suggestion) => {
+                const prediction = suggestion.placePrediction!
+                return (
+                  <li key={prediction.placeId}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => onSuggestionSelect(suggestion)}
+                      className="w-full flex items-start gap-2 px-3 py-2 hover:bg-gray-50 text-sm"
+                    >
+                      <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-neutral-gray" />
+                      <span>
+                        <span className="block text-deep-teal font-medium">
+                          {prediction.mainText?.text ?? prediction.text.text}
+                        </span>
+                        {prediction.secondaryText && (
+                          <span className="block text-neutral-gray text-xs">
+                            {prediction.secondaryText.text}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
 
         {/* Map */}
         <div className="relative w-full h-[380px] rounded-xl overflow-hidden shadow-md border">
