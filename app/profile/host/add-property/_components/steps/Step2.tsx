@@ -250,7 +250,7 @@ export function Step2({
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => onSuggestionSelect(suggestion)}
-                      className="w-full flex items-start gap-2 px-3 py-2 hover:bg-gray-50 text-sm"
+                      className="w-full flex items-start gap-2 px-3 py-2 hover:bg-gray-50 text-sm text-left"
                     >
                       <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-neutral-gray" />
                       <span>
