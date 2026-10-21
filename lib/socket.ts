@@ -1,8 +1,10 @@
 import { io, Socket } from 'socket.io-client'
 import { getAccessToken } from './tokenManager'
 
-const SOCKET_URL = 'https://bscit.sit.kmutt.ac.th'
-const SOCKET_PATH = '/capstone25/cp25nk2/api/socket.io'
+// Socket.IO is served by the backend under {API base}/api/socket.io
+const apiBaseUrl = new URL(process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000/')
+const SOCKET_URL = apiBaseUrl.origin
+const SOCKET_PATH = `${apiBaseUrl.pathname.replace(/\/$/, '')}/api/socket.io`
 
 let socket: Socket | null = null
 
